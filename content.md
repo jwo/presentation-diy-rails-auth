@@ -1,8 +1,15 @@
-## Authentication
----
-## Authorization
+## Authentication & Authorization
+
+* Authentication: Knowing who you are
+* Authorization: Granting access based on conditions
+
 ---
 ## Why Not Just Use Devise?
+
+* Difficult to understand
+* Difficult to customize
+* Difficult to extend
+
 ---
 ## General Flow:
 
@@ -372,3 +379,11 @@ Result will have
 ---
 # Live Demo
 ### We'll Do It Live
+
+---
+
+Links:
+
+* [t: @jwo](http://twitter.com/jwo) / [g: @jwo](http://github.com/jwo)
+* [Slides](https://github.com/jwo/presentation-diy-rails-auth)
+* [Code (Before and After)](https://github.com/jwo/presentations-diy-auth-code)
