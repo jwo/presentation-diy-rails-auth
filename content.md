@@ -1,316 +1,374 @@
-## A What bot?
-
-
-* SlackBot (n), a Bot for Slack
-* Slack (n): a chat program, like IRC but for-profit and also Free and extensible
-* Bot (n): Automated responder, preferably with fun to give illusion of AI
-
+## Authentication
 ---
-## Is Slack being used on the reg?
+## Authorization
+---
+## Why Not Just Use Devise?
+---
+## General Flow:
 
-* 34 out of 35 Ruby devs at HoustonRB used it
-* Only 10 moved from a previous chat program to Slack
-
----
-## Slack Growth
-
-![usage](/img/slack-growth.jpg)
----
-## Slack is replacing email
----
-## Slack is replacing texts
----
-## Slack is replacing IRC
----
-## Zapier
-### You can Send everything to slack
----
-Twitter Mentions to Slack
-![img](/img/slack-twitter.png)
----
-
-### other ideas
-
-* Stripe Purchases
-* Email to support
-* Honeybadger issue
-* GitHub issues
-
-
----
-## If Zapier can do it, what can we do?
-
----
-## Restated: How can we, as developers, use this for /good|evil/
+1. Request Page
+2. Redirect to Sign in if not signed in
+3. Sign in
+4. Request Page
+5. Now we view page!
 
 ---
 
-## Things dorton and I have done:
+## Redirect to Sign in if not signed in
 
-1. Get current fantasy sports scores
-1. Check sports rankings of teams
-1. Connect to his BBQ tracking website and get current status of the brisket
-1. Insult our friend when he said ScoreBot was stupid
-
----
-## How Does this magic work?
-
-1. A program sits and watches slack
-1. It parses each message, decides if it should reply
-
----
-## Sooooooo
-
-1. No difficult to configure callbacks
-1. It can run in dev mode easily
-1. It runs on Free Slack
-1. There's a gem for that
-
----
-## Gem:
-
-> gem 'slack-ruby-bot'
-
-or
-
-> gem 'slack-ruby-client'
-
----
-
-## Which to use?
-
-We'll use `slack-ruby-bot`, which wraps `slack-ruby-client`
-
----
-
-## Hello World
-
-Create a new team: https://slack.com/create
-
-![configure](/img/configure.png)
-
----
-## Hello World
-
-Choose New Bot
-![new-bot](/img/new-bot.png)
-
----
-# Code and Stuff
-
----
-## Hiiiiiiii World
-
-![img](/img/rubybot-hi-static.png)
-
----
-## Hiiiiiiii World
-
-```
-require 'slack-ruby-bot'
-
-module RubyBot
-  class App < SlackRubyBot::App
-  end
-
-  class Hiiii < SlackRubyBot::Commands::Base
-    command 'hi' do |client, data, _match|
-      client.message text: 'hiiiiiiiiiiii', channel: data.channel
+```ruby
+class YourController < ApplicationController
+  before_action do
+    if @current_user.nil?
+      redirect_to sign_in_path, alert: "Please Sign In"
     end
   end
 end
-
-RubyBot::App.instance.run
 ```
-
----
-## Wolfram Alpha
-
-![img](/img/rubybot-wolfram-static.png)
-
 ---
 
-## Wolfram Alpha
-
-
+```ruby
+if @current_user.nil?
 ```
-class WolframSearch < SlackRubyBot::Commands::Base
+So, we need something that sets `@current_user`
 
-    command 'wolf' do |client, data, _match|
-
-      result = Wolfram::Query.new(_match[:expression]).fetch
-      hash = Wolfram::HashPresenter.new(result).to_hash
-      formatted_results = # snip
-      client.message text: result, channel: data.channel
-
-    end
-  end
+```ruby
+redirect_to sign_in_path
 ```
-
----
-### Scrape Sites
-
-Scraping Sites works very well.
-
-![img](/img/rubybot-image-static.png)
-
+So, we need a `sign_in_path`
 
 ---
 
-### Scrape Sites
-
-Scraping Sites works very well.
-
 ```
-class Image < SlackRubyBot::Commands::Base
+class ApplicationController < ActionController::Base
+  protect_from_forgery with: :exception
 
-  command 'imageme' do |client, data, _match|
-
-
-    Mechanize.new { |agent|
-      agent.user_agent_alias = 'Mac Safari'
-    }
-    .get("http://theironyard.com/about/team/")
-    .search(".bio h2").select{|tag| tag.text =~ /#{_match[:expression]}/i}.map do |tag|
-      {
-        name: tag.text,
-        src: "http://theironyard.com/" + tag.parent.parent.search("img").attr("src").value
-      }
-    end
-    .each do |args|
-      client.message text: args[:name], channel: data.channel
-      client.message text: args[:src], channel: data.channel
-    end
-
-
+  before_action do
+    @current_user = User.find_by id: session[:user_id]
   end
 end
 ```
 
-
+* Before every single action is executed, Rails will look at the session and get the user_id
+* It will try to find a User by that id, so `current_user` may be nil
+* Every action now has access to `@current_user`
 ---
-### Insults are Funny
 
-![img](/img/rubybot-insult-static.png)
-
----
-### Insults are Funny
+SessionController:
 
 ```
-class Insults < SlackRubyBot::Commands::Base
-
-  command 'insult' do |client, data, _match|
-
-    result = JSON.parse Http.get('http://quandyfactory.com/insult/json').body
-    insult = result['insult']
-    client.message text: "Hey #{_match[:expression]}, #{insult}", channel: data.channel
-
+class SessionsController < ApplicationController
+  def new
   end
-
+  def create
+  end
+  def delete
+  end
 end
 ```
 
----
-## Screenshot of pages
-![gif](/img/rubybot-screenshot-static.png)
+Routes
+```
+get 'sign_in' => 'sessions#new', as: :sign_in
+post 'sign_in' => 'sessions#create'
+delete 'sign_in' => 'sessions#delete'
+```
 
 ---
 
-### Screenshot of pages
+We'll end up at `/sign_in` if we are not already signed in. We need a form:
+
+```erb
+<%= form_tag do %>
+
+  <div>
+    <%= label_tag :username %>
+    <%= text_field_tag :username, params[:username] %>
+  </div>
+
+  <div>
+    <%= label_tag :password %>
+    <%= password_field_tag :password, "" %>
+  </div>
+
+  <div>
+    <%= submit_tag "Sign In", class: "btn"%>
+  </div>
+
+<% end %>
+```
+
+---
+
+Since we did not specify a location, Rails will use `POST` and the `/sign_in` path. That matches our Sessions#create. Yay!
+
+---
+Now we get to the core of the matter. How can we store a user's password, verify the user's password is correct, but never be able to reverse engineer the user's password?
+
+---
+# bcrypt
+---
+## has_secure_password
 
 ```
-class Screenshot < SlackRubyBot::Commands::Base
+class User < ApplicationRecord
+  has_secure_password
+  validates :username, presence: true, uniqueness: true
+end
+```
 
-  command 'screenshot' do |client, data, _match|
+This requires us to have a database field named `password_digest`.
+---
+## This requires us to have a database field named `password_digest`.
+---
 
-    url = URI(_match[:expression].match(/\<(.*)\>/)[1]) rescue nil
+* when you set a user's password `@user.password = '12345'`, it will encrypt it into `password_digest`
+* You cannot reverse engineer `12345`
+* You must give the password again to see if it's correct:
 
-    if url
-      fetcher_object = Screencap::Fetcher.new(url.to_s)
-      screenshot = fetcher_object.fetch width: 1700, height: 850
-      imgur_client = Imgur2.new ENV['IMGUR_API']
-      url = imgur_client.upload screenshot
-      image_url = url["upload"]["links"]["original"]
-      client.message text: image_url, channel: data.channel
+```ruby
+@user.authenticate("12345")
+=> #<User id="3"..../>
+@user.authenticate("42")
+=> nil
+```
+
+---
+```ruby
+class SessionsController < ApplicationController
+
+  def create
+
+    user = User.find_by username: params[:username]
+    if user && user.authenticate(params[:password])
+      session[:user_id] = user.id
+      redirect_to root_path, notice: "Signed in!"
     else
-      client.message text: _match[:expression] + "isn't a URL, yo", channel: data.channel
+      flash.now[:alert] = "Something is wrong with your username and/or password"
+      render :new
     end
   end
 end
 ```
 
 ---
-## Other People's Good Ideas
----
-## /healthcheck
 
-![img](/img/healthcheck.png)
+# ProTips
 
 ---
-## Admin Slack instead of AdminPages
 
-![img](/img/admin.png)
+```ruby
+class ApplicationController < ActionController::Base
+  protect_from_forgery with: :exception
+
+  before_action do
+    @current_user = User.find_by id: session[:user_id]
+  end
+
+  def authenticate_user!
+    unless @current_user do
+      redirect_to sign_in_path, notice: "Please Sign In"
+    end
+  end
+
+  def current_user
+    @current_user
+  end
+  helper_method :current_user
+
+  def user_signed_in?
+    @current_user.present?
+  end
+  helper_method :user_signed_in?
+end
+```
 
 ---
-## Daily Standups
 
-![img](/img/dailystandup.png)
+Allow you to in your controllers:
+
+```ruby
+class YourController < ApplicationController
+  before_action :authenticate_user!
+end
+```
 
 ---
-## Merge Features (GitHub)
+
+Allows you to use in your ERB views:
+
+```erb
+<%= if user_signed_in? %>
+  Hi <%= current_user %>.
+<% else %>
+  <%= link_to 'Sign Up', new_user_path %>
+<% end %>
+```
+
+---
+
+## Sooo basically, we created Devise.
+
+* It's Secure
+* It's rather easy to implement
+* It's **Easy to Extend and Customize**
+
+---
+
+## What to Take Away for both DIY _AND_ Devise
+
+* `@current_user` is not special. It's an ActiveRecord Object
+* All the routes and controllers aren't special: you can customize then.
+
+
+---
+
+# Securing an API
+
+---
+
+## has_secure_token
+
+Requires you to have a `token` field.
+
+```ruby
+class User < ActiveRecord::Base
+  has_secure_token
+end
+
+user = User.new
+user.save
+user.token # => "pX27zsMN2ViQKta1bGfLmVJE"
 
 ```
-(merge)
-bouzuya> hubot pr hitoridokusho/hibot #2
-  hubot> #2 pull request 2
-         hitoridokusho:master <- bouzuya:add-hubot-merge-pr
-         https://github.com/hitoridokusho/hibot/pull/2
-         OK ? [yes/no]
-bouzuya> yes
-  hubot> merged: hitoridokusho/hibot#2 : Pull Request successfully merged
-```
-
-(see https://github.com/bouzuya/hubot-pr)
-
----
-# Lessons Learned
-
 ---
 
-## Formatting Responses
-You do all the text formatting. `\n` is your friend.
+Each web request could then pass a token as an auth_token parameter.
 
+```ruby
+class Api::UsersController < ApiController
+  before_action do
+    @current_user = User.find_by token: params[:auth_token]
+
+    render "Auth Token Required", status: 401 unless @current_user
+  end
+end
 ```
-hash.fetch(:pods, {}).each do |key, values|
-  next if values.join("") == ""
-  result << "\n" + key + "\n"
-  result << values.join("\n")
+
+---
+
+### Signing In to API
+
+```ruby
+class Api::SessionsController < ApiController
+  def create
+    @current_user = User.find_by username: params[:username]
+    if @current_user && @current_user.authenticate(params[:password])
+      render json: {user: @current_user, auth_token: @current_user.token}, status: 422
+    else
+      render errors: ["Username or Password is Invalid"], status: 422
+    end
+  end
 end
 ```
 ---
-## You down with OPC
 
-Other People's Code, like APIs and Webpages were likely not thought of as
-needing to be friendly for YOU, a bot, to parse.
+## Downsides
 
-So they work, but you has lots of explaining to do.
+* There's only one token per user
+* If regenerated, would sign out all phones/sessions/etc
 
 ---
-# This RubyBot Code
+
+# Doorkeeper
+
+### Doorkeeper is an OAuth 2 provider for Rails
 ---
-## Tech Used
+
+### Enabling Password Grant.
+`/config/initializers/doorkeeper.rb`
+
+```ruby
+Doorkeeper.configure do
+  orm :active_record
+
+  resource_owner_from_credentials do
+    User.find_by(email: params[:username]).try(:authenticate, params[:password])
+  end
+
+  access_token_methods :from_bearer_authorization,:from_access_token_param
+
+
+  grant_flows %w(password)
+
+end
+Doorkeeper.configuration.token_grant_types << "password"
+```
+
+---
+
+* from_bearer_authorization (header): `'Authorization': 'Bearer TOKENHERE'`
+* from_access_token_param : `?access_token=TOKENHERE`
+
+---
+### In Your Controller
 
 ```
-gem 'slack-ruby-bot'
-gem 'dotenv'
-gem 'wolfram'
-gem 'http'
-gem 'mechanize'
-gem 'screencap'
-gem 'imgur2'
+class Api::BooksController < Api::V1::ApiController
+  before_action :doorkeeper_authorize!
+
+  def index
+   render json: {books: current_user.books}
+  end
+
+  private
+
+  def current_user
+    User.find(doorkeeper_token.resource_owner_id) if doorkeeper_token
+  end
+end
+```
+---
+
+1. Already have User with secure password
+1. add to gemfile `doorkeeper`
+1. `bundle install`
+1. Add file `config/initializers/doorkeeper.rb`
+1. Add to routes: `use_doorkeeper`
+1. `rails generate doorkeeper:migration`
+1. `rails db:migrate`
+
+---
+
+## Signing in
+
+POST JSON to `/oauth/token`
+
+```json
+{
+  "grant_type": "password",
+  "username": "jwo",
+  "password": "12345"
+}
+```
+
+Result will have
+
+```json
+{
+  "auth_token": "eebdaddb2c2de2817dbd6bebe06b0a7ffa34ffd38adeb7d0",
+  "expires": 1234567890
+}
 ```
 
 ---
-## Where to Find
 
-## [github.com/jwo/rubybot](https://github.com/jwo/rubybot)
+# Benefits of DoorKeeper
+
+1. Multiple signing per account
+1. Can be expanded later
+1. Fits into Grape
+
+---
+# Live Demo
+### We'll Do It Live
